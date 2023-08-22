@@ -1,0 +1,101 @@
+---
+title: "Nypd_shootings"
+output: pdf_document
+date: "2023-08-21"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This is a document exploring the historic data on shootings regarding the New York Police Department (NYPD) from 2006 to 2023. In the code chunks below we are importing the required libraries and storing the link in a variable named url and then reading in the data file to R.
+
+```{r cars}
+library(dplyr)
+library(knitr)
+library(forcats)
+library(lubridate)
+library(ggplot2)
+library(tidyverse)
+library(viridis)
+```
+
+
+It is useful to get an idea of how the data is represented and so the glimpse() function was used here. 
+```{r pressure, echo=FALSE}
+nypd <- read.csv("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD", stringsAsFactors = TRUE)
+glimpse(nypd)
+```
+
+
+## Cleaning the Data
+Upon looking at the data it became clear that there were a number of columns which would not be relevant to my analysis. Specifically, the columns Latitude, Longitude, Lon_Lat, X_COORD_CD, Y_COORD_CD were removed from the dataframe. Then the first few rows were observed to see the changes made to the dataset.
+```{r}
+nypd <- nypd %>%
+# Select variables needed for analysis
+  select(one_of(
+    c(
+      "INCIDENT_KEY",
+      "OCCUR_DATE",
+      "OCCUR_TIME",
+      "BORO",
+      "PRECINCT",
+      "STATISTICAL_MURDER_FLAG",
+      "VIC_AGE_GROUP",
+      "VIC_SEX",
+      "VIC_RACE"
+)
+))
+
+head(nypd)
+```
+
+The STATISTICAL_MURDER_FLAG AND VIC_SEX columns were logicals and needed to be converted to dummy numeric variables in order to make future modeling easier. 
+```{r}
+
+nypd$STATISTICAL_MURDER_FLAG[nypd$STATISTICAL_MURDER_FLAG == "true"] <- 1
+nypd$STATISTICAL_MURDER_FLAG[nypd$STATISTICAL_MURDER_FLAG == "false"] <- 0
+nypd$VIC_SEX[nypd$VIC_SEX == "M"] <- 1
+nypd$VIC_SEX[nypd$VIC_SEX == "W"] <- 0
+
+nypd$BORO = as.factor(nypd$BORO)
+nypd$VIC_AGE_GROUP = as.factor(nypd$VIC_AGE_GROUP)
+nypd$VIC_RACE = as.factor(nypd$VIC_RACE)
+
+head(nypd)
+```
+
+
+## Visualizing
+
+Now that the dataset has been cleaned I decided to make some visualizations in order to gain a better idea of how the data is distributed. My main question of interest was which neighborhoods have the most shootings? Is there a significant gap between shootings in that neighborhood versus the rest?
+```{r}
+ggplot(nypd, aes(x=BORO, y=sum(INCIDENT_KEY))) + 
+  geom_bar(stat="identity") + 
+  xlab("Borough") + ylab("Events") +
+  ggtitle("Events in Various Boroughs") +
+  theme_minimal()
+```
+
+From the above chart it appears that Brooklyn is the most dangerous neighborhood with the highest amount of shootings and Staten Island is the safest with the least amount of shootings. This was a surprise to me since I assumed the Bronx would have the most shootings, however, that may be my personal bias due to having lived in New York City several years ago. 
+
+I then wanted to see if there were any racial groups affected more by shootings than others. 
+
+```{r}
+ggplot(nypd, aes(VIC_RACE)) + 
+  geom_bar() + theme(axis.text.x = element_text(angle = 45))
+```
+From the above graph it is very clear that African american people disproportionately suffer from shootings. The next closest group of hispanics is barely 20% of the shootings suffered by black people
+
+
+## Modeling
+```{r}
+#linear_model <- lm(nypd$STATISTICAL_MURDER_FLAG ~ nypd$VIC_RACE + nypd$OCCUR_DATE)
+```
+
+Linear regression is a simple model used to predict numbers. In this instance I built a model to predict whether the victim's race and the occurrence of the incident had an effect on the number of murders. 
+
+## Biases and conclusions
+During the past several years in the United States there has been a number of high profile incidents where people of color where killed in a police interaction. The media has skewed each situation into a polarizing situation and it is difficult to look at both the police and the victim in an unbiased manner. From this realization, I have intentionally focused the analysis to be on the number of shootings in each borough.
